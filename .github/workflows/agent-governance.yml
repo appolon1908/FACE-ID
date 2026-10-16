@@ -1,0 +1,27 @@
+name: agent-governance
+on:
+  pull_request:
+  push:
+    branches:
+      - mission/face-id-middleware-integration-20260924
+permissions:
+  contents: read
+jobs:
+  single-lane-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify governance v1 package
+        run: |
+          test -f .governance/repository.yaml
+          test -f .governance/workstation-policy.yaml
+          python3 -m json.tool .governance/authority.json >/dev/null
+          test -x scripts/agent_preflight.sh
+          test -x scripts/agent_finish.sh
+          test -x scripts/certify.sh
+          test -x scripts/reconcile.sh
+          test -x scripts/worktree_guard.sh
+      - name: Enforce Codestra monitoring lane
+        run: bash scripts/agent_preflight.sh --ci mission/face-id-middleware-integration-20260924 --certify

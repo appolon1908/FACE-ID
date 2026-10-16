@@ -1,0 +1,12 @@
+version: 1
+repository: FACE-ID
+repository_url: https://github.com/ingtrader21-spec/FACE-ID.git
+canonical_path: /home/codestra/Worktrees/faceid-agents/FACE-ID
+active_worktree: /home/codestra/Worktrees/faceid-agents/FACE-ID
+active_branch: mission/face-id-middleware-integration-20260924
+base_branch: development
+base_sha: c57101fd6605d3a6755b8360fef2bae20d52a5ac
+upstream_ref: origin/mission/face-id-middleware-integration-20260924
+publication_branch: mission/face-id-middleware-integration-20260924
+production_effects_allowed: false
+certification_mode: isolated_exact_sha

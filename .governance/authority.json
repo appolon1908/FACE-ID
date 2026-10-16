@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "repository": "FACE-ID",
+  "repository_url": "https://github.com/ingtrader21-spec/FACE-ID.git",
+  "active_branch": "mission/face-id-middleware-integration-20260924",
+  "base_branch": "development",
+  "base_sha": "c57101fd6605d3a6755b8360fef2bae20d52a5ac",
+  "upstream_ref": "origin/mission/face-id-middleware-integration-20260924",
+  "publication_branch": "mission/face-id-middleware-integration-20260924",
+  "development_workstation": "codestra-desktop",
+  "publication_workstation": "Appolon",
+  "allow_production_effects": false,
+  "allow_force_push": false,
+  "canonical_worktree": "/home/codestra/Worktrees/faceid-agents/FACE-ID",
+  "updated_at": "2026-09-26T17:02:16.089146+00:00"
+}

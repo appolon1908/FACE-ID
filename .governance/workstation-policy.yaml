@@ -1,0 +1,10 @@
+version: 1
+development_authority: codestra-desktop
+publication_authority: Appolon
+allow_force_push: false
+allow_direct_protected_branch_development: false
+allow_production_effects: false
+require_clean_start: true
+require_clean_finish: true
+require_exact_sha: true
+require_remote_compare_and_swap_before_publish: true

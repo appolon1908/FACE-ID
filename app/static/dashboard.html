@@ -25,6 +25,7 @@ main{padding:26px;min-width:0}.top{display:flex;justify-content:space-between;ga
     <button data-tab="events">Events</button>
     <button data-tab="approvals" id="approvalsNav">Approvals</button>
     <button data-tab="registration">Registration QR</button>
+    <button data-tab="clients">Clients</button>
     <button data-tab="audit">Audit</button>
     <button data-tab="system">System</button>
   </div>
@@ -93,6 +94,31 @@ main{padding:26px;min-width:0}.top{display:flex;justify-content:space-between;ga
     </div>
   </section>
 
+  <section class="tab" id="clients">
+    <div class="grid layout">
+      <div class="card">
+        <div class="section"><h2>Document intake</h2><span class="muted small">Standalone product boundary</span></div>
+        <p class="muted">Scan and review identity documents in <strong>Codestra Document Console</strong>. After operator confirmation, Middleware V3 sends FACE-ID a reviewed document handoff. FACE-ID does not run OCR, decode document QR codes, or store raw ID images.</p>
+        <div class="note"><strong>Flow:</strong> Document Console → Middleware V3 → Document Intelligence → reviewed handoff → FACE-ID client record.</div>
+        <div class="small muted" style="margin-top:10px">Document authenticity is not inferred from OCR. FACE-ID only accepts a confirmed handoff reference.</div>
+      </div>
+      <div class="card">
+        <div class="section"><h2>Client database</h2><button class="btn" onclick="loadClients()">Refresh</button></div>
+        <div id="clientList" class="muted">Loading…</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="section"><h2>Face enrollment for selected client</h2></div>
+      <div style="display:grid;gap:10px;max-width:650px">
+        <input id="clientEnrollId" placeholder="Client ID" style="padding:10px;border:1px solid var(--line);border-radius:10px">
+        <input id="clientFaceFile" type="file" accept="image/*">
+        <label><input id="clientFaceConsent" type="checkbox"> I confirm explicit biometric face-enrollment consent.</label>
+        <input id="clientConsentRef" placeholder="Consent reference" style="padding:10px;border:1px solid var(--line);border-radius:10px">
+        <button class="btn primary" onclick="enrollClientFace()">Enroll face</button>
+        <div class="small muted">Uses a separate consented face capture. The ID-card portrait is not automatically enrolled as a biometric template.</div>
+      </div>
+    </div>
+  </section>
   <section class="tab" id="audit">
     <div class="card">
       <div class="section"><h2>Administrative audit trail</h2><button class="btn" onclick="loadAudit()">Refresh</button></div>
@@ -122,7 +148,7 @@ function initials(v){return String(v||'?').split(/\s+/).slice(0,2).map(x=>x[0]||
 function fmt(v){return v?new Date(v).toLocaleString():'—'}function pct(v){return v==null?'—':(v*100).toFixed(1)+'%'}
 async function j(u,o){const r=await fetch(u,o);if(!r.ok)throw new Error(await r.text());return r.json()}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
-function showTab(id){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));q('#pageTitle').textContent=id[0].toUpperCase()+id.slice(1);if(id==='people')loadPeople();if(id==='events')loadEvents();if(id==='approvals')loadApprovals();if(id==='registration')loadRegistrationInfo();if(id==='audit')loadAudit();if(id==='system')loadSystem()}
+function showTab(id){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));q('#pageTitle').textContent=id[0].toUpperCase()+id.slice(1);if(id==='people')loadPeople();if(id==='events')loadEvents();if(id==='approvals')loadApprovals();if(id==='registration')loadRegistrationInfo();if(id==='clients')loadClients();if(id==='audit')loadAudit();if(id==='system')loadSystem()}
 function changeCamera(id){
   cameraId=id;
   const c=cameraMap[id];
@@ -184,6 +210,8 @@ async function loadRegistrationInfo(){
     q('#registrationUrl').textContent='Registration link unavailable';
   }
 }
+async function enrollClientFace(){const id=q('#clientEnrollId').value.trim(),f=q('#clientFaceFile').files[0],ref=q('#clientConsentRef').value.trim();if(!id||!f)return toast('Select a client and face image');if(!q('#clientFaceConsent').checked)return toast('Explicit consent is required');if(!ref)return toast('Enter a consent reference');try{const o=await j('/v1/clients/'+encodeURIComponent(id)+'/face-enrollment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_base64:await b64(f),consent_obtained:true,consent_reference:ref,retention_days:365})});toast('Face enrolled for '+o.display_name);loadClients();loadPeople();refreshAll()}catch(e){toast('Face enrollment failed: '+e.message)}}
+async function loadClients(){try{const rows=await j('/v1/clients?limit=300');q('#clientList').textContent=rows.length?rows.map(c=>c.display_name+' • '+c.client_id+' •••• '+(c.document_last4||'')+(c.face_enrolled?' • face enrolled':'')).join('\n'):'No clients yet.'}catch(e){q('#clientList').textContent='Could not load clients'}}
 async function loadAudit(){
   const rows=await j('/v1/audit?limit=300');
   q('#auditTable').innerHTML=rows.length?rows.map(a=>'<tr><td>'+fmt(a.occurred_at)+'</td><td>'+esc(a.actor)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.target_type+(a.target_id?' / '+a.target_id:''))+'</td><td class="small">'+esc(JSON.stringify(a.details||{}))+'</td></tr>').join(''):'<tr><td colspan="5" class="muted">No administrative actions yet.</td></tr>';
