@@ -24,7 +24,7 @@ jobs:
           --health-retries 20
     env:
       DATABASE_URL: postgresql://source_ci:${{ github.run_id }}-${{ github.run_attempt }}-fixture-only@127.0.0.1:5432/faceid_source_test
-      FACEID_EVENT_DIR: ${{ runner.temp }}/faceid-source-events
+      FACEID_EVENT_DIR: /tmp/faceid-source-events-${{ github.run_id }}
       RECOGNITION_ENGINE_URL: http://recognition-fixture.invalid
       ALLOW_PRODUCTION_EFFECTS: '0'
     steps:
