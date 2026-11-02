@@ -1,0 +1,100 @@
+name: FACE-ID current source validation
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Current FACE-ID isolated database and API tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: source_ci
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}-fixture-only
+          POSTGRES_DB: faceid_source_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U source_ci -d faceid_source_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://source_ci:${{ github.run_id }}-${{ github.run_attempt }}-fixture-only@127.0.0.1:5432/faceid_source_test
+      FACEID_EVENT_DIR: /tmp/faceid-source-events-${{ github.run_id }}
+      RECOGNITION_ENGINE_URL: http://recognition-fixture.invalid
+      ALLOW_PRODUCTION_EFFECTS: '0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install current source and test dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt pytest==8.4.2
+      - name: Compile all tracked Python and shell source
+        run: |
+          git ls-files -z '*.py' | xargs -0 -r python -m py_compile
+          git ls-files -z '*.sh' | xargs -0 -r -n1 bash -n
+      - name: Validate actual dashboard JavaScript
+        run: |
+          python - <<'PYTHON'
+          import pathlib,re,subprocess,tempfile
+          for path in pathlib.Path('app/static').glob('*.html'):
+              for index, script in enumerate(re.findall(r'<script[^>]*>(.*?)</script>', path.read_text(), re.S | re.I)):
+                  target=pathlib.Path(tempfile.gettempdir()) / (path.stem+'-'+str(index)+'.js')
+                  target.write_text(script)
+                  subprocess.run(['node','--check',str(target)],check=True)
+          PYTHON
+      - name: Run complete current source suite with isolated PostgreSQL and forbidden device/network effects
+        run: python -m pytest -q
+      - name: Build current image without running the service
+        run: docker build --tag faceid-source-ci .
+  secrets:
+    name: Full-history and source secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan complete effective tree and tracked history
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl --fail --silent --show-error --location https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz --output "$archive"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum --check -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          for scope in git dir; do
+            if ! "$RUNNER_TEMP/gitleaks" "$scope" --no-banner --redact=100 --exit-code 1 --report-format json --report-path "$RUNNER_TEMP/gitleaks-redacted.json" .; then
+              python - <<'PYTHON'
+          import json,os
+          from pathlib import Path
+          for finding in json.loads((Path(os.environ['RUNNER_TEMP'])/'gitleaks-redacted.json').read_text()):
+              print(json.dumps({key:finding.get(key) for key in ('RuleID','File','StartLine','Commit','Fingerprint')}))
+          PYTHON
+              exit 1
+            fi
+          done
+  faceid-source-validation:
+    name: faceid-source-validation
+    needs: [test, secrets]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require actual API/database tests, compile/build and secret scans
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          SECRET_RESULT: ${{ needs.secrets.result }}
+        run: |
+          test "$TEST_RESULT" = success
+          test "$SECRET_RESULT" = success

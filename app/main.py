@@ -1,3 +1,4 @@
+import ipaddress
 import base64, json, os, time, threading, uuid, hashlib, hmac, io, datetime
 from typing import Optional
 import cv2, httpx, psycopg
@@ -254,7 +255,11 @@ async def local_admin_boundary(request:Request, call_next):
     path=request.url.path
     public = path == "/register" or path == "/v1/public/enroll" or path == "/healthz"
     host = request.client.host if request.client else ""
-    local = host in {"127.0.0.1","::1","localhost"} or host.startswith("172.")
+    local = host in {"127.0.0.1","::1","localhost"}
+    try:
+        local = local or ipaddress.ip_address(host) in ipaddress.ip_network("172.16.0.0/12")
+    except ValueError:
+        pass
     if not public and not local:
         return Response("Local admin access only",status_code=403,media_type="text/plain")
     return await call_next(request)
